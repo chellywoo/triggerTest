@@ -3,7 +3,7 @@ import re
 import yaml
 
 
-def comment_remover(text, lang="cpp"):
+def comment_remover(text, lang="dm"):
     if lang == "cpp" or lang == "go" or lang == "java":
 
         def replacer(match):
@@ -18,6 +18,41 @@ def comment_remover(text, lang="cpp"):
             re.DOTALL | re.MULTILINE,
         )
         return re.sub(pattern, replacer, text)
+    elif lang == "dm":
+        # 定义一个包含常见SQL操作的正则表达式
+        regex = r"(GRANT|REVOKE|CONNECT|CREATE|INSERT|UPDATE|DROP|SELECT|DELETE)[^;]*;"
+        # 编译正则表达式模式
+        pattern = re.compile(regex, re.IGNORECASE)
+        # 匹配所有SQL语句
+        matcher = pattern.finditer(text)
+
+        sql_buffer = []
+        drop_buffer = []
+        for match in matcher:
+            sql_code = match.group()
+            # 提取CREATE语句
+            if sql_code.upper().startswith("CREATE"):
+                words = sql_code.split()
+                try:
+                    if 'USER' == words[1]:
+                        sql_buffer.append(f"DROP {words[1]} IF EXISTS {words[2]}")
+                    if "OR" == words[1]:
+                        drop_statement = f"DROP {words[3]} IF EXISTS {words[4]}"
+                    else:
+                        drop_statement = f"DROP {words[1]} IF EXISTS {words[2]}"
+                    drop_buffer.insert(0, drop_statement + ";")  
+                except:
+                    return []
+            if "END" in sql_code.upper():
+                sql_text = sql_buffer.pop()
+                sql_code = sql_text + sql_code
+                
+            # 将原始SQL代码添加到缓冲区
+            sql_buffer.append(sql_code)
+        # 将DROP语句添加到SQL代码的末尾
+        sql_buffer.extend(drop_buffer)
+        print("\n".join(sql_buffer))
+        return sql_buffer, drop_buffer
     elif lang == "smt2":
         return re.sub(r";.*", "", text)
     else:

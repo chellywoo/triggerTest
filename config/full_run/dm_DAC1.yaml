@@ -1,0 +1,103 @@
+# This file includes the configuration parameters for the fuzzing approach
+
+# --------------------------------------------------------------------------- #
+# Configuration of the overall fuzzing setup
+fuzzing:
+  # where to store the results (relative to the where you are calling fuzz.py)
+  output_folder: ../fastd/fuzzall/FuzzAll/experiment/full_run/dm/run
+  # number of fuzzing iterations
+  num: 200
+  # total fuzzing time in hours
+  total_time: 240
+  # level of logging: 1 = INFO, 2 = TRACE, 3 = VERBOSE
+  log_level: 3
+  # use to validate fuzzing outputs on the fly.
+  # If flag not set then only generation will be done. (Default: false)
+  otf: true
+  # use to resume a previous fuzzing run.
+  # If flag not set then a new fuzzing run will be started (Default: false)
+  resume: false
+  # use to evaluate the fuzzing results.
+  # If flag not set then no evaluation will be done (Default: false)
+  evaluate: false
+  # use hand-written prompt to query the LLM model
+  use_hand_written_prompt: false
+  # whether to use only trigger_to_generate_input and input_hint, without the
+  # any documentation information or example code
+  no_input_prompt: false
+  # prompt strategy to generate obtain programs after the first one.
+  # 0: generate new code using separator
+  # 1: mutate existing code
+  # 2: semantically equivalent code generation
+  # 3: combine previous two code generations
+  prompt_strategy: 3
+
+
+# --------------------------------------------------------------------------- #
+# Configuration of the target system
+target:
+  # language to fuzz, currently supported: cpp, smt2, java, go
+  language: dm
+  # path to documentation of the feature of the target system
+  # (Relative to the root of the fuzzing framework)
+  path_documentation: config/documentation/dm/dm1.md
+  # path to the example code using the feature of the target system
+  # (Relative to the root of the fuzzing framework)
+  path_example_code: config/code/dm1.md
+  # config/code/dm1.md
+  # path to the command to push the llm to generate the input for the
+  # target system using the given feature
+  trigger_to_generate_input: "**根据上述说明，生成一个SQL测试用例，用于展示在 Oracle 数据库中触发器在使用过程中可能存在间接越权的情况**。
+    ## 测试用例要求
+      0. 初始登陆采用SYSDBA用户，密码为SYSDBA。初始时默认没有任何用户、任何表，所有需要的数据库对象都需要预先创建好。
+      1. 如果需要创建新用户，新用户密码统一设置为123456789，密码使用双引号包括。切换用户连接，使用CONNECT 用户名/密码的sql命令。
+      2. 在授予某个数据库对象权限或调用某个数据库对象时，一定要先创建该对象，避免执行报错。比如，授予表的插入权限时，表已经被创建好了；插入表时，表也被创建好；调用存储过程时，存储过程已经创建好。
+      3. 测例中必须存在触发器。
+      4. 在触发器触发后，执行SELECT查询以验证结果。
+      5. 测试后，删除所有测试创建的对象和配置，保证环境清洁。
+    ## 限制
+      - 只生成一个场景下的一个测试用例，生成一个场景的一个测试用例后立马停止不要继续生成。
+      - 新用户密码统一设置为123456789，密码不要使用单引号。
+      - 不要给出注释也就是说明文本，避免影响sql语句的执行。
+    "
+  # trigger_to_generate_input: "根据上述说明，生成一个完整的SQL测试用例，用于展示在 Oracle 数据库中触发器在使用过程中可能违反安全模型的情况。
+  #   ## 限制
+  #     - 一次对话只生成一个测试用例。
+  #     - 用户密码必须大于等于9位，密码使用双引号包括,不要使用单引号。
+  #     - 测例中必须存在触发器。
+  #   "
+  # trigger_to_generate_input: "根据上述说明，生成一个SQL测试用例，用于展示在 Oracle 数据库中触发器在使用过程中可能违反安全模型的情况。
+  #   注意的是：因为测例中可能会包含多个用户切换的情况，一定要注意使用CONNECT 用户名/密码的方式来切换用户，并且不要创建用户之后就授予表的权限，因为表可能还没有创建，哪个用户需要创建表时，一定要先切换用户，在创建表，然后授予表的权限。注意先创建表，再授予权限。"
+
+  #前2. 命名规范：使用“用户名.对象名”格式定义所有对象。
+  input_hint: "请生成一个测试用例，展示在Oracle数据库中触发器间接越权的情况。"
+  # input_hint: "达梦数据库中触发器违反安全模型的情况"
+  # path to the hand-written prompt to give to the llm
+  # (Relative to the root of the fuzzing framework)
+  path_hand_written_prompt:
+  # string to check if the generated input is valid. If the string is present
+  # in the generated input, the input is considered valid.
+  target_string: ""
+
+
+# --------------------------------------------------------------------------- #
+# Configuration of the Large Language Model (LLM) setup
+llm:
+  # temperature to query the LLM model when generating output.
+  temperature: 1.2
+  # batch size
+  # batch_size: 10
+  # use hardware acceleration (GPU) for the LLM model
+  device: cuda
+  # model name according to the HuggingFace model hub
+  # note that you can also export your cache such as this:
+  # export TRANSFORMERS_CACHE=/blabla/cache/
+  model_name: qwen2.5-7b-instruct
+  # local model folder (absolute path)
+  # if not set, the model will be downloaded from the HuggingFace model hub
+  # model_folder: /home/username/local_model_repository
+  # additional end of sequence tokens
+  # additional_eos_tokens:
+  #   - "<eom>"
+  # maximum length of the generated llm output
+  max_length: 10000

@@ -81,7 +81,7 @@ def fuzz(
                 if otf:
                     f_result, message = target.validate_individual(file_name)
                     target.parse_validation_message(f_result, message, file_name)
-                    prev.append((f_result, fo))
+                    prev.append((f_result, fo, message))
             target.update(prev=prev)
 
 
@@ -127,7 +127,7 @@ def cli(ctx, config_file):
     "batch_size",
     "--batch_size",
     type=int,
-    default=30,
+    default=1,
     help="batch size for the model",
 )
 @click.option(

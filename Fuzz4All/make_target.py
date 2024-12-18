@@ -4,6 +4,7 @@ from Fuzz4All.target.C.C import CTarget
 from Fuzz4All.target.CPP.CPP import CPPTarget
 from Fuzz4All.target.GO.GO import GOTarget
 from Fuzz4All.target.JAVA.JAVA import JAVATarget
+from Fuzz4All.target.DM.DM4 import DMTarget
 from Fuzz4All.target.QISKIT.QISKIT import QiskitTarget
 from Fuzz4All.target.SMT.SMT import SMTTarget
 from Fuzz4All.target.target import Target
@@ -24,6 +25,8 @@ def make_target(kwargs: Dict[str, Any]) -> Target:
         return GOTarget(**kwargs)
     elif language == "java":  # Java
         return JAVATarget(**kwargs)
+    elif language == "dm":  # Java
+        return DMTarget(**kwargs)
     else:
         raise ValueError(f"Invalid target {language}")
 
@@ -42,8 +45,8 @@ def make_target_with_config(config_dict: Dict[str, Any]) -> Target:
         "bs": llm.get("batch_size", 1),
         "temperature": llm.get("temperature", 1.0),
         "device": llm.get("device", "cuda"),
-        "model_name": llm.get("model_name", "bigcode/starcoder"),
-        "max_length": llm.get("max_length", 1024),
+        "model_name": llm.get("model_name", "qwen2-7b-instruct"),
+        "max_length": llm.get("max_length", 10000),
         "use_hw": fuzzing.get("use_hand_written_prompt", False),
         "no_input_prompt": fuzzing.get("no_input_prompt", False),
         "prompt_strategy": fuzzing.get("prompt_strategy", 0),
@@ -73,5 +76,7 @@ def make_target_with_config(config_dict: Dict[str, Any]) -> Target:
         return GOTarget(**target_compat_dict)
     elif target["language"] == "java":
         return JAVATarget(**target_compat_dict)
+    elif target["language"] == "dm":
+        return DMTarget(**target_compat_dict)
     else:
         raise ValueError(f"Invalid target {target['language']}")

@@ -12,7 +12,6 @@ from Fuzz4All.model import make_model
 from Fuzz4All.util.api_request import create_config, request_engine
 from Fuzz4All.util.Logger import LEVEL, Logger
 
-
 class FResult(Enum):
     SAFE = 1  # validation returns okay
     FAILURE = 2  # validation contains error (something wrong with validation)
@@ -20,6 +19,7 @@ class FResult(Enum):
     LLM_WEAKNESS = (
         4  # the generated input is ill-formed due to the weakness of the language model
     )
+    NONE = 5
     TIMED_OUT = 10  # timed out, can be okay in certain targets
 
 
@@ -38,6 +38,7 @@ class Target(object):
         self.max_length = kwargs["max_length"]
         self.device = kwargs["device"]
         self.model_name = kwargs["model_name"]
+        # self.model = AutoModelForCausalLM.from_pretrained("/home/useradmin/LXQ/Qwen2.5-Coder-7B", torch_dtype="auto")
         self.model = None
         # loggers
         self.g_logger = Logger(self.folder, "log_generation.txt", level=kwargs["level"])
@@ -46,11 +47,18 @@ class Target(object):
         self.m_logger = Logger(self.folder, "log.txt")
         # system messages for prompting
         self.SYSTEM_MESSAGE = None
-        self.AP_SYSTEM_MESSAGE = "You are an auto-prompting tool"
-        self.AP_INSTRUCTION = (
-            "Please summarize the above documentation in a concise manner to describe the usage and "
-            "functionality of the target "
-        )
+        self.AP_SYSTEM_MESSAGE = "你是一个自动提示工具"
+        # self.AP_INSTRUCTION = (
+        #     "Please summarize the above documentation in a concise manner to describe the usage and "
+        #     "functionality of the target "
+        # )
+        self.AP_INSTRUCTION = ("从上述的说明中，总结触发器在间接越权方面的薄弱点，引导后续生成不安全的测试用例，揭示数据库的安全风险。")
+        # self.AP_INSTRUCTION = ("从上述的说明中，总结触发器在间接越权方面的薄弱点，设计能展示该错误的着手点")
+        # self.AP_INSTRUCTION = ("从上述的说明中，总结触发器在权限传播方面的薄弱点，总结SQL测例的步骤，确保能够直接在数据库中执行，如果涉及到多个用户之间的切换，对于数据库对象的名称一定要作限制，防止出现用户B操作用户A表时，找不到表等情况。只进行总结，不要生成测例。")
+        # self.AP_INSTRUCTION = ("根据文末的关键词对上述说明进行梳理，总结造成不安全的深层次的错误原因，指导后续生成覆盖率更广的测试用例。")
+        # self.AP_INSTRUCTION = ("根据文末的关键词对上述说明进行梳理，总结造成不安全的深层次的错误原因，给出之后生成测例时的着手点。")
+        # self.AP_INSTRUCTION = ("根据文末的关键词对上述说明进行梳理，总结造成不安全的深层次的错误原因。")
+        # self.AP_INSTRUCTION = ("对上述说明进行梳理，总结造成不安全的深层次的错误原因，指导后续生成覆盖率更广的测试用例。")
         # prompt based variables
         self.hw = kwargs["use_hw"]
         self.no_input_prompt = kwargs["no_input_prompt"]
@@ -59,6 +67,9 @@ class Target(object):
         self.initial_prompt = None
         self.prev_example = None
         # prompt strategies
+        self.succ_prompt = self.wrap_in_comment("上述例子执行结果未发现安全风险，重新生成一个能够发现安全风险的测试用例")
+        self.err_prompt = self.wrap_in_comment("上述例子执行结果发现安全风险，请生成一个类似的测试用例映射这个安全风险")
+        self.syn_prompt = self.wrap_in_comment("上述例子存在语法错误，请重新生成一个SQL测试用例，保证语法语义的正确性")
         self.se_prompt = self.wrap_in_comment(
             "Please create a semantically equivalent program to the previous "
             "generation"
@@ -108,6 +119,20 @@ class Target(object):
 
     def write_back_file(self, code: str):
         raise NotImplementedError
+    
+    # def countScore(self, stdout) -> int:
+    #     server_pattern = r'服务器\[LOCALHOST:5236\]'
+    #     execute_number_pattern = r'执行号:(\d+)'
+
+    #     # 统计服务器信息出现的次数
+    #     server_count = len(re.findall(server_pattern, stdout))
+
+    #     # 统计执行号出现的次数
+    #     execute_number_count = len(re.findall(execute_number_pattern, stdout))
+
+    #     print(f"服务器信息出现的次数: {server_count}")
+    #     print(f"执行号出现的次数: {execute_number_count}")
+    #     return (server_count + execute_number_count)
 
     # each target defines their way of validating prompts (can overwrite)
     def validate_prompt(self, prompt: str):
@@ -115,7 +140,7 @@ class Target(object):
             prompt,
             batch_size=self.batch_size,
             temperature=self.temperature,
-            max_length=self.max_length,
+            max_length=2048,
         )
         unique_set = set()
         score = 0
@@ -123,15 +148,17 @@ class Target(object):
             code = self.prompt_used["begin"] + "\n" + fo
             wb_file = self.write_back_file(code)
             result, _ = self.validate_individual(wb_file)
+            # sql_code = self.clean_code(wb_file)
             if (
                 result == FResult.SAFE
                 and self.filter(code)
+                # and sql_code not in unique_set
                 and self.clean_code(code) not in unique_set
             ):
-                unique_set.add(self.clean_code(code))
-                score += 1
+                unique_set.add(self.clean_code(code)) # self.clean_code(code)
+                score += _
         return score
-
+    
     # each target defines their way of validating prompts
     # for example we might want to encode the prompt as a docstring comment to facilitate better generation using
     # smaller LLMs
@@ -172,9 +199,9 @@ class Target(object):
             config = create_config(
                 {},
                 self._create_auto_prompt_message(message),
-                max_tokens=500,
+                max_tokens=2048,
                 temperature=0.0,
-                model="gpt-4",
+                model="qwen-max",
             )
             response = request_engine(config)
             greedy_prompt = self.wrap_prompt(response.choices[0].message.content)
@@ -191,9 +218,9 @@ class Target(object):
                 config = create_config(
                     {},
                     self._create_auto_prompt_message(message),
-                    max_tokens=500,
-                    temperature=1,
-                    model="gpt-4",
+                    max_tokens=2048,
+                    temperature=1.0,
+                    model="qwen-max",
                 )
                 response = request_engine(config)
                 prompt = self.wrap_prompt(response.choices[0].message.content)
@@ -266,7 +293,7 @@ class Target(object):
             self.prompt,
             batch_size=self.batch_size,
             temperature=self.temperature,
-            max_length=1024,
+            max_length=2048,
         )
 
     # generation
@@ -282,7 +309,8 @@ class Target(object):
         new_fos = []
         for fo in fos:
             self.g_logger.logo("========== sample =========", level=LEVEL.VERBOSE)
-            new_fos.append(self.clean(self.prompt_used["begin"] + "\n" + fo))
+            # new_fos.append(self.clean(self.prompt_used["begin"] + "\n" + fo))
+            new_fos.append(self.prompt_used["begin"] + "\n" + fo)
             self.g_logger.logo(
                 self.clean(self.prompt_used["begin"] + "\n" + fo), level=LEVEL.VERBOSE
             )
@@ -302,40 +330,79 @@ class Target(object):
     def clean_code(self, code: str) -> str:
         raise NotImplementedError
 
-    def update_strategy(self, new_code: str) -> str:
-        while 1:
-            strategy = random.randint(0, self.p_strategy)
-            # generate new code using separator
-            if strategy == 0:
-                return f"\n{new_code}\n{self.prompt_used['separator']}\n"
-            # mutate existing code
-            elif strategy == 1:
-                return f"\n{new_code}\n{self.m_prompt}\n"
-            # semantically equivalent code generation
-            elif strategy == 2:
-                return f"\n{new_code}\n{self.se_prompt}\n"
-            # combine previous two code generations
-            else:
-                if self.prev_example is not None:
-                    return f"\n{self.prev_example}\n{self.prompt_used['separator']}\n{self.prompt_used['begin']}\n{new_code}\n{self.c_prompt}\n"
+    # 改变更新策略，每次都去判断上次执行结果
+    # 如果执行成功
+    def update_str(self, new_code: str, code: int) -> str:
+        if code == 1:
+            return f"\n{self.succ_prompt}\n"
+        else:
+            return f"\n{new_code}\n{self.err_prompt}\n"
+    
+    # 如果执行出现语法错误
+    def update_strategy(self, new_code: str, old_message: str) -> str:
+        # failure_msg = self.syn_prompt + "\n" + old_message
+        # return f"\n{new_code}\n{failure_msg}\n"
+        return f"\n{new_code}\n{self.syn_prompt}\n"
+        if "语法分析出错" in old_message : 
+            return f"\n{new_code}\n{self.syn_prompt}\n"
+        if "无效的表或视图名" in old_message :
+            return f"\n{new_code}\n{self.syn_prompt}\n"
+        
+        if old_message == None:
+            return f""
+        if self.prev_example is not None:
+            return f"\n{self.prev_example}\n{self.prompt_used['separator']}\n{self.prompt_used['begin']}\n{new_code}\n{self.c_prompt}\n"
+    # def update_strategy(self, new_code: str) -> str:
+    #     while 1:
+    #         strategy = random.randint(0, self.p_strategy)
+    #         # generate new code using separator
+    #         if strategy == 0:
+    #             return f"\n{new_code}\n{self.prompt_used['separator']}\n"
+    #         # mutate existing code
+    #         elif strategy == 1:
+    #             return f"\n{new_code}\n{self.m_prompt}\n"
+    #         # semantically equivalent code generation
+    #         elif strategy == 2:
+    #             return f"\n{new_code}\n{self.se_prompt}\n"
+    #         # combine previous two code generations
+    #         else:
+    #             if self.prev_example is not None:
+    #                 return f"\n{self.prev_example}\n{self.prompt_used['separator']}\n{self.prompt_used['begin']}\n{new_code}\n{self.c_prompt}\n"
 
     # update
     def update(self, **kwargs):
         new_code = ""
-        for result, code in kwargs["prev"]:
+        old_message = ""
+        for result, code, message in kwargs["prev"]:
             if (
                 result == FResult.SAFE
                 and self.filter(code)
                 and self.clean_code(code) != self.prev_example
             ):
                 new_code = self.clean_code(code)
-        if new_code != "" and self.p_strategy != -1:
-            self.prompt = (
-                self.initial_prompt
-                + self.update_strategy(new_code)
-                + self.prompt_used["begin"]
-                + "\n"
-            )
+            old_message = message    
+        if new_code != "" :
+            if result == FResult.SAFE:
+                self.prompt = (
+                    self.initial_prompt
+                    + self.update_str(new_code, 1)
+                    + self.prompt_used["begin"]
+                    + "\n"
+                )
+            elif result == FResult.FAILURE:
+                self.prompt = (
+                    self.initial_prompt
+                    + self.update_str(new_code, 0)
+                    + self.prompt_used["begin"]
+                    + "\n"
+                )
+            elif result == FResult.ERROR:
+                self.prompt = (
+                    self.initial_prompt
+                    + self.update_strategy(new_code, old_message)
+                    + self.prompt_used["begin"]
+                    + "\n"
+                )
             self.prev_example = new_code
 
     # validation
@@ -347,6 +414,8 @@ class Target(object):
         self.v_logger.logo("Validating {} ...".format(file_name), LEVEL.TRACE)
         if f_result == FResult.SAFE:
             self.v_logger.logo("{} is safe".format(file_name), LEVEL.VERBOSE)
+        elif f_result == FResult.NONE:
+            self.v_logger.logo("{} is none".format(file_name), LEVEL.VERBOSE)
         elif f_result == FResult.FAILURE:
             self.v_logger.logo(
                 "{} failed validation with error message: {}".format(

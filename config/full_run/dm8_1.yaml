@@ -1,0 +1,83 @@
+# This file includes the configuration parameters for the fuzzing approach
+
+# --------------------------------------------------------------------------- #
+# Configuration of the overall fuzzing setup
+fuzzing:
+  # where to store the results (relative to the where you are calling fuzz.py)
+  output_folder: ../fastd/fuzzall/FuzzAll/experiment/full_run/dm/run
+  # number of fuzzing iterations
+  num: 200
+  # total fuzzing time in hours
+  total_time: 24
+  # level of logging: 1 = INFO, 2 = TRACE, 3 = VERBOSE
+  log_level: 3
+  # use to validate fuzzing outputs on the fly.
+  # If flag not set then only generation will be done. (Default: false)
+  otf: true
+  # use to resume a previous fuzzing run.
+  # If flag not set then a new fuzzing run will be started (Default: false)
+  resume: false
+  # use to evaluate the fuzzing results.
+  # If flag not set then no evaluation will be done (Default: false)
+  evaluate: false
+  # use hand-written prompt to query the LLM model
+  use_hand_written_prompt: false
+  # whether to use only trigger_to_generate_input and input_hint, without the
+  # any documentation information or example code
+  no_input_prompt: false
+  # prompt strategy to generate obtain programs after the first one.
+  # 0: generate new code using separator
+  # 1: mutate existing code
+  # 2: semantically equivalent code generation
+  # 3: combine previous two code generations
+  prompt_strategy: 2
+
+
+# --------------------------------------------------------------------------- #
+# Configuration of the target system
+target:
+  # language to fuzz, currently supported: cpp, smt2, java, go
+  language: dm
+  # path to documentation of the feature of the target system
+  # (Relative to the root of the fuzzing framework)
+  path_documentation: config/documentation/sql/dm8_1.md
+  # path to the example code using the feature of the target system
+  # (Relative to the root of the fuzzing framework)
+  path_example_code:
+  # path to the command to push the llm to generate the input for the
+  # target system using the given feature
+  # Please create a test case where the SYSDBA user creates user TEST 1 and user TEST 2. SYSDBA grants user TEST 1 the DBA role, and user TEST 1 grants user TEST 2 the necessary permissions or roles. Use the syntax of Dameng Database 8 to implement a complex way to elevate user TEST 2 permissions to DBA
+  # trigger_to_generate_input: "/* 请创建一个测试用例，SYSDBA用户创建用户TEST1和用户TEST2，SYSDBA授予用户TEST1以DBA角色，用户TEST1授予用户TEST2必要的权限或者角色，使用达梦数据库8的语法以复杂的方式实现用户TEST2权限提升至DBA */"
+  # trigger_to_generate_input: "/* 生成一组测试用例，能够反应触发器通过调用函数实现间接提权功能,user1用户是普通用户，创建函数执行授权任意该用户未有的权限，创建插入后触发器，执行该函数，使用DBA用户插入user1用户的表中，触发触发器调用函数进行授权 */"
+  trigger_to_generate_input: "/* 生成一组测试用例，能够反应触发器通过调用函数实现间接提权功能，符合oracle的语法 */"
+  # hint to give to the llm to generate the input for the target system
+  input_hint: "普通用户使用触发器间接提权"
+  # path to the hand-written prompt to give to the llm
+  # (Relative to the root of the fuzzing framework)
+  path_hand_written_prompt:
+  # string to check if the generated input is valid. If the string is present
+  # in the generated input, the input is considered valid.
+  target_string: ""
+
+
+# --------------------------------------------------------------------------- #
+# Configuration of the Large Language Model (LLM) setup
+llm:
+  # temperature to query the LLM model when generating output.
+  temperature: 1
+  # batch size
+  # batch_size: 10
+  # use hardware acceleration (GPU) for the LLM model
+  device: cuda
+  # model name according to the HuggingFace model hub
+  # note that you can also export your cache such as this:
+  # export TRANSFORMERS_CACHE=/blabla/cache/
+  model_name: qwen2-7b-instruct
+  # local model folder (absolute path)
+  # if not set, the model will be downloaded from the HuggingFace model hub
+  # model_folder: /home/username/local_model_repository
+  # additional end of sequence tokens
+  # additional_eos_tokens:
+  #   - "<eom>"
+  # maximum length of the generated llm output
+  max_length: 2048

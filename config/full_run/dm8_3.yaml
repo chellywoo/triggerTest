@@ -1,0 +1,112 @@
+# This file includes the configuration parameters for the fuzzing approach
+
+# --------------------------------------------------------------------------- #
+# Configuration of the overall fuzzing setup
+fuzzing:
+  # where to store the results (relative to the where you are calling fuzz.py)
+  output_folder: ../fastd/fuzzall/FuzzAll/experiment/full_run/dm/run
+  # number of fuzzing iterations
+  num: 20000
+  # total fuzzing time in hours
+  total_time: 240
+  # level of logging: 1 = INFO, 2 = TRACE, 3 = VERBOSE
+  log_level: 3
+  # use to validate fuzzing outputs on the fly.
+  # If flag not set then only generation will be done. (Default: false)
+  otf: true
+  # use to resume a previous fuzzing run.
+  # If flag not set then a new fuzzing run will be started (Default: false)
+  resume: false
+  # use to evaluate the fuzzing results.
+  # If flag not set then no evaluation will be done (Default: false)
+  evaluate: false
+  # use hand-written prompt to query the LLM model
+  use_hand_written_prompt: false
+  # whether to use only trigger_to_generate_input and input_hint, without the
+  # any documentation information or example code
+  no_input_prompt: false
+  # prompt strategy to generate obtain programs after the first one.
+  # 0: generate new code using separator
+  # 1: mutate existing code
+  # 2: semantically equivalent code generation
+  # 3: combine previous two code generations
+  prompt_strategy: 0
+
+
+# --------------------------------------------------------------------------- #
+# Configuration of the target system
+target:
+  # language to fuzz, currently supported: cpp, smt2, java, go
+  language: dm
+  # path to documentation of the feature of the target system
+  # (Relative to the root of the fuzzing framework)
+  path_documentation: config/documentation/sql/dm8_6.md
+  # path to the example code using the feature of the target system
+  # (Relative to the root of the fuzzing framework)
+  path_example_code:
+  # path to the command to push the llm to generate the input for the
+  # target system using the given feature
+  # Please create a test case where the SYSDBA user creates user TEST 1 and user TEST 2. SYSDBA grants user TEST 1 the DBA role, and user TEST 1 grants user TEST 2 the necessary permissions or roles. Use the syntax of Dameng Database 8 to implement a complex way to elevate user TEST 2 permissions to DBA
+  # trigger_to_generate_input: "/* 请创建一个测试用例，SYSDBA用户创建用户TEST1和用户TEST2，SYSDBA授予用户TEST1以DBA角色，用户TEST1授予用户TEST2必要的权限或者角色，使用达梦数据库8的语法以复杂的方式实现用户TEST2权限提升至DBA */"
+  # trigger_to_generate_input: "/* 生成一组测试用例，能够反应触发器通过调用函数实现间接提权功能,user1用户是普通用户，创建函数执行授权任意该用户未有的权限，创建插入后触发器，执行该函数，使用DBA用户插入user1用户的表中，触发触发器调用函数进行授权 */"
+  # trigger_to_generate_input: "/* 请生成一组测试用例，描述触发器在使用过程中可能会违反安全模型的例子，比如触发器调用存储过程/函数实现间接提权功能，就违反了安全模型，生成的测试用例需要符合Oracle数据库的语法 */"
+  # trigger_to_generate_input: "/* 请生成一组测试用例，描述触发器在使用过程中可能会违反安全模型的例子,生成的测试用例需要符合Oracle数据库的语法,并且每个测例都包含完整的操作过程，包括创建用户、创建表、触发器等,以便直接进行测试 */"
+  # trigger_to_generate_input: "/* 根据上述说明，请生成一组SQL测试用例，描述触发器在使用过程中可能会违反安全模型的例子,生成的测试用例需要符合Oracle数据库的语法,并且每个测例都包含完整的操作过程，包括创建表、触发器等,测例开始给出用户登陆信息，多个用户切换需要重新进行连接,也包括最后的环境恢复,以便直接进行测试.注意创建用户时，密码不少于9位,并且要给出如何去评判是否不安全，给出SQL代码，从而能对比前后两次的行为，进一步对比是否不安全 */"
+  # trigger_to_generate_input: "-- 根据上述说明，请生成一组SQL测试用例，描述触发器在使用过程中可能会违反安全模型的例子。
+  #   注意：
+  #   1. 一次对话只生成一个测例.只生成符合 Oracle 数据库语法的测试用例。
+  #   2. 开始每个测试用例时，创建新的用户，然后给出用户登录信息，包括用户名和密码（密码不少于9位）。多个用户切换时需重新进行连接。
+  #   3. 在执行不安全行为前后，采用select得到当前状态，以便后续对比。
+  #   4. 最后给出环境恢复的步骤，以便下一次测试可以顺利进行。"
+  # trigger_to_generate_input: "根据上述说明，每次选择一个说明生成一个SQL测试用例，用于展示在这种情况下 Oracle 数据库中触发器在使用过程中可能违反安全模型的情况。
+  #   ## 技能: 生成测试用例
+  #   1. 创建新用户，提供用户名和密码，密码不少于9位，密码只能用双引号包括，并给出用户登录信息。
+  #   2. 确保测试所需的表和存储过程在执行测试用例时已经存在。若不存在，一定要在创建触发器之前创建表/存储过程等。
+  #   3. 触发器操作与结果对比：在触发器执行前后，分别执行一次select有助于进行结果对比。
+  #   4. 给出环境恢复步骤，确保下一次测试能顺利进行。
+  #   ## 限制
+  #   - 一次对话只生成一个测试用例。
+  #   - 用户密码必须大于等于9位
+  #   "
+  # 每次选择一个说明
+  trigger_to_generate_input: "根据上述说明，生成一个SQL测试用例，用于展示在 Oracle 数据库中触发器在使用过程中可能违反安全模型的情况。
+    ## 技能: 生成测试用例
+      1. 创建新用户，提供用户名和密码，密码不少于9位，密码只能用双引号包括，并给出用户登录信息。
+      2. 确保测试所需的表和存储过程在执行测试用例时已经存在。若不存在，一定要在创建触发器之前创建表/存储过程等。
+      3. 触发器操作与结果对比：在触发器执行前后，分别执行一次select有助于进行结果对比。
+      4. 给出环境恢复步骤，确保下一次测试能顺利进行。
+    ## 限制
+      - 一次对话只生成一个测试用例。
+      - 用户密码必须大于等于9位。
+    "
+  input_hint: "请生成一个测试用例，展示在Oracle数据库中触发器违反安全模型的情况"
+  # input_hint: "达梦数据库中触发器违反安全模型的情况"
+  # path to the hand-written prompt to give to the llm
+  # (Relative to the root of the fuzzing framework)
+  path_hand_written_prompt:
+  # string to check if the generated input is valid. If the string is present
+  # in the generated input, the input is considered valid.
+  target_string: ""
+
+
+# --------------------------------------------------------------------------- #
+# Configuration of the Large Language Model (LLM) setup
+llm:
+  # temperature to query the LLM model when generating output.
+  temperature: 1
+  # batch size
+  # batch_size: 10
+  # use hardware acceleration (GPU) for the LLM model
+  device: cuda
+  # model name according to the HuggingFace model hub
+  # note that you can also export your cache such as this:
+  # export TRANSFORMERS_CACHE=/blabla/cache/
+  model_name: qwen2.5-7b-instruct
+  # local model folder (absolute path)
+  # if not set, the model will be downloaded from the HuggingFace model hub
+  # model_folder: /home/username/local_model_repository
+  # additional end of sequence tokens
+  # additional_eos_tokens:
+  #   - "<eom>"
+  # maximum length of the generated llm output
+  max_length: 10000

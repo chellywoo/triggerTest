@@ -1,11 +1,14 @@
 import os
 import signal
 import time
-
+from openai import OpenAI
 import openai
 
 openai.api_key = os.environ.get("OPENAI_API_KEY", "dummy")
-client = openai.OpenAI()
+client = OpenAI(
+        api_key="sk-67d0f834d27e46eeb819368970a64075", # 如果您没有配置环境变量，请在此处用您的API Key进行替换
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",  # 填写DashScope服务的base_url
+    )
 
 
 def create_openai_config(
@@ -34,7 +37,7 @@ def create_config(
     messages: list,
     max_tokens: int,
     temperature: float = 2,
-    model: str = "gpt-3.5-turbo",
+    model: str = "qwen-max",
 ):
     if prev == {}:
         return {
@@ -57,6 +60,7 @@ def request_engine(config):
     ret = None
     while ret is None:
         try:
+            print("开始读取qwen-turbo")
             signal.signal(signal.SIGALRM, handler)
             signal.alarm(120)  # wait 10
             ret = client.chat.completions.create(**config)
